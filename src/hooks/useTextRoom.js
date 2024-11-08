@@ -1,9 +1,9 @@
 // src/hooks/useTextRoom.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ref, onValue, set, get } from 'firebase/database';
 import { db } from '../config/firebase';
 
-const useTextRoom = (roomId) => {
+const useTextRoom = (documentId) => {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,101 +11,116 @@ const useTextRoom = (roomId) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const checkRoom = async () => {
+    const documentRef = ref(db, `documents/${documentId}`);
+    
+    // Initial check and setup
+    const initializeDocument = async () => {
       try {
-        const roomRef = ref(db, `rooms/${roomId}`);
-        const snapshot = await get(roomRef);
+        const snapshot = await get(documentRef);
         
         if (!snapshot.exists()) {
-          // Create new room if it doesn't exist
-          await set(roomRef, {
+          // Create new document if it doesn't exist
+          await set(documentRef, {
             text: '',
             created: Date.now(),
             lastUpdated: Date.now(),
-            isLocked: false,
-            password: null
+            isLocked: false
           });
           setIsLocked(false);
           setIsAuthenticated(true);
         } else {
-          // Check if room is password protected
-          const roomData = snapshot.val();
-          setIsLocked(roomData.isLocked);
-          setIsAuthenticated(!roomData.isLocked);
+          const docData = snapshot.val();
+          setIsLocked(!!docData.isLocked);
+          setIsAuthenticated(!docData.isLocked);
+          setText(docData.text || '');
         }
         setLoading(false);
       } catch (err) {
+        console.error('Error initializing document:', err);
         setError(err.message);
         setLoading(false);
       }
     };
 
-    checkRoom();
-  }, [roomId]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const roomRef = ref(db, `rooms/${roomId}`);
-    const unsubscribe = onValue(roomRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
+    // Set up real-time listener
+    const unsubscribe = onValue(documentRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
         setText(data.text || '');
+        setIsLocked(!!data.isLocked);
       }
     }, (err) => {
+      console.error('Error in real-time listener:', err);
       setError(err.message);
     });
 
-    return () => unsubscribe();
-  }, [roomId, isAuthenticated]);
+    initializeDocument();
 
-  const updateText = async (newText) => {
-    if (!isAuthenticated) return;
-    
+    // Cleanup
+    return () => unsubscribe();
+  }, [documentId]);
+
+  const updateText = useCallback(async (newText) => {
+    if (!documentId || (!isAuthenticated && isLocked)) return;
+
     try {
-      const roomRef = ref(db, `rooms/${roomId}`);
-      await set(roomRef, {
+      const documentRef = ref(db, `documents/${documentId}`);
+      const snapshot = await get(documentRef);
+      const currentData = snapshot.exists() ? snapshot.val() : {};
+      
+      await set(documentRef, {
+        ...currentData,
         text: newText,
-        lastUpdated: Date.now(),
-        isLocked: isLocked,
+        lastUpdated: Date.now()
       });
     } catch (err) {
+      console.error('Error updating text:', err);
       setError(err.message);
     }
-  };
+  }, [documentId, isAuthenticated, isLocked]);
 
-  const setPassword = async (password) => {
+  const setPassword = useCallback(async (password) => {
+    if (!documentId) return;
+
     try {
-      const roomRef = ref(db, `rooms/${roomId}`);
-      await set(roomRef, {
-        text: text,
-        lastUpdated: Date.now(),
+      const documentRef = ref(db, `documents/${documentId}`);
+      const snapshot = await get(documentRef);
+      const currentData = snapshot.exists() ? snapshot.val() : {};
+
+      await set(documentRef, {
+        ...currentData,
         isLocked: true,
-        password: password // In production, you should hash this password
+        password: password, // In production, hash this password
+        lastUpdated: Date.now()
       });
       setIsLocked(true);
     } catch (err) {
+      console.error('Error setting password:', err);
       setError(err.message);
     }
-  };
+  }, [documentId]);
 
-  const checkPassword = async (password) => {
+  const checkPassword = useCallback(async (password) => {
+    if (!documentId) return false;
+
     try {
-      const roomRef = ref(db, `rooms/${roomId}`);
-      const snapshot = await get(roomRef);
+      const documentRef = ref(db, `documents/${documentId}`);
+      const snapshot = await get(documentRef);
+      
       if (snapshot.exists()) {
-        const roomData = snapshot.val();
-        if (roomData.password === password) { // In production, compare hashed passwords
+        const docData = snapshot.val();
+        if (docData.password === password) { // In production, compare hashed passwords
           setIsAuthenticated(true);
           return true;
         }
       }
       return false;
     } catch (err) {
+      console.error('Error checking password:', err);
       setError(err.message);
       return false;
     }
-  };
+  }, [documentId]);
 
   return {
     text,

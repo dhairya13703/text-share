@@ -5,43 +5,78 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
+:root {
+  --header-height: 64px;
+  --footer-height: 48px;
+}
+
 @layer base {
   body {
-    @apply bg-background text-gray-800 font-['Roboto'];
+    @apply m-0 p-0 min-h-screen overflow-x-hidden bg-[#f5f5f5] font-['Roboto'];
+  }
+
+  textarea {
+    @apply font-['Roboto'] text-base leading-relaxed p-8 w-full border-0 resize-none bg-white;
+    min-height: calc(100vh - var(--header-height) - var(--footer-height));
+  }
+
+  textarea:focus {
+    @apply outline-none ring-0 shadow-none;
   }
 }
 
 @layer components {
   .editor-container {
-    @apply bg-white rounded-lg shadow-lg p-6;
+    @apply w-full bg-white rounded-lg shadow-sm;
+    min-height: calc(100vh - var(--header-height) - var(--footer-height));
   }
 
   .icon-button {
-    @apply p-2 rounded transition-colors hover:bg-opacity-10 hover:bg-white;
+    @apply p-2 rounded-md transition-colors duration-200 hover:bg-white/10;
+  }
+
+  .main-header {
+    @apply sticky top-0 z-10 bg-[#1a1a1a] text-white shadow-sm;
+  }
+
+  .main-content {
+    @apply p-4 bg-[#f5f5f5];
+    min-height: calc(100vh - var(--header-height));
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar styles */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100;
+  background: #f1f1f1;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded;
+  background: #c1c1c1;
+  border-radius: 6px;
+  border: 3px solid #f1f1f1;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400;
+  background: #a8a8a8;
 }
 
-/* Textarea styles */
-textarea {
-  @apply w-full min-h-[calc(100vh-250px)] p-6 text-base leading-relaxed
-    border-0 focus:ring-0 focus:outline-none resize-none
-    placeholder-gray-400 bg-white;
-  font-family: 'Roboto', sans-serif !important;
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  textarea {
+    @apply p-4;
+  }
+  
+  .editor-container {
+    min-height: calc(100vh - var(--header-height) - var(--footer-height) - 2rem);
+  }
 }
