@@ -11,21 +11,24 @@ const useTextRoom = (documentId) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const documentRef = ref(db, `documents/${documentId}`);
+    if (!documentId) {
+      setError('Invalid room ID');
+        setLoading(false);
+      return;
+      }
+      const documentRef = ref(db, `documents/${documentId}`);
     
-    // Initial check and setup
     const initializeDocument = async () => {
-      try {
-        const snapshot = await get(documentRef);
+    try {
+      const snapshot = await get(documentRef);
         
         if (!snapshot.exists()) {
-          // Create new document if it doesn't exist
-          await set(documentRef, {
-            text: '',
-            created: Date.now(),
-            lastUpdated: Date.now(),
-            isLocked: false
-          });
+        await set(documentRef, {
+          text: '',
+          created: Date.now(),
+          lastUpdated: Date.now(),
+          isLocked: false
+        });
           setIsLocked(false);
           setIsAuthenticated(true);
         } else {
@@ -35,14 +38,13 @@ const useTextRoom = (documentId) => {
           setText(docData.text || '');
         }
         setLoading(false);
-      } catch (err) {
+    } catch (err) {
         console.error('Error initializing document:', err);
-        setError(err.message);
+      setError(err.message);
         setLoading(false);
-      }
-    };
+    }
+  };
 
-    // Set up real-time listener
     const unsubscribe = onValue(documentRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -56,7 +58,6 @@ const useTextRoom = (documentId) => {
 
     initializeDocument();
 
-    // Cleanup
     return () => unsubscribe();
   }, [documentId]);
 
@@ -90,7 +91,7 @@ const useTextRoom = (documentId) => {
       await set(documentRef, {
         ...currentData,
         isLocked: true,
-        password: password, // In production, hash this password
+        password: password,
         lastUpdated: Date.now()
       });
       setIsLocked(true);
@@ -109,7 +110,7 @@ const useTextRoom = (documentId) => {
       
       if (snapshot.exists()) {
         const docData = snapshot.val();
-        if (docData.password === password) { // In production, compare hashed passwords
+        if (docData.password === password) {
           setIsAuthenticated(true);
           return true;
         }
@@ -131,7 +132,7 @@ const useTextRoom = (documentId) => {
     updateText,
     setPassword,
     checkPassword
-  };
+};
 };
 
 export default useTextRoom;
